@@ -41,8 +41,8 @@ def teardown_mesos(config):
     for i in range(0, config.get("num_exclusive_agents", 0)):
         teardown_mesos_agent(config, i, is_exclusive=True)
 
-    # 2 - Remove Mesos Master
-    utils.remove_existing_container(config["mesos_master_container"])
+    # 2 - Remove Mesos Main
+    utils.remove_existing_container(config["mesos_main_container"])
 
     # 3- Remove orphaned mesos containers.
     for c in cli.containers(filters={"name": "^/mesos-"}, all=True):
@@ -86,18 +86,18 @@ def run_mesos(config):
     print_utils.okblue("sleep 20 secs for zk to come up")
     time.sleep(20)
 
-    # Run mesos master
-    cli.pull(config["mesos_master_image"])
+    # Run mesos main
+    cli.pull(config["mesos_main_image"])
     container = cli.create_container(
-        name=config["mesos_master_container"],
-        hostname=config["mesos_master_container"],
+        name=config["mesos_main_container"],
+        hostname=config["mesos_main_container"],
         volumes=["/files"],
-        ports=[repr(config["master_port"])],
+        ports=[repr(config["main_port"])],
         host_config=cli.create_host_config(
-            port_bindings={config["master_port"]: config["master_port"]},
+            port_bindings={config["main_port"]: config["main_port"]},
             binds=[
                 work_dir + "/files:/files",
-                work_dir + "/mesos_config/etc_mesos-master:/etc/mesos-master",
+                work_dir + "/mesos_config/etc_mesos-main:/etc/mesos-main",
             ],
             privileged=True,
         ),
@@ -107,9 +107,9 @@ def run_mesos(config):
             # TODO: Enable following flags for fully authentication.
             "MESOS_AUTHENTICATE_HTTP_FRAMEWORKS=true",
             "MESOS_HTTP_FRAMEWORK_AUTHENTICATORS=basic",
-            "MESOS_CREDENTIALS=/etc/mesos-master/credentials",
+            "MESOS_CREDENTIALS=/etc/mesos-main/credentials",
             "MESOS_LOG_DIR=" + config["log_dir"],
-            "MESOS_PORT=" + repr(config["master_port"]),
+            "MESOS_PORT=" + repr(config["main_port"]),
             "MESOS_ZK=zk://{0}:{1}/mesos".format(
                 utils.get_container_ip(config["zk_container"]),
                 config["default_zk_port"],
@@ -118,16 +118,16 @@ def run_mesos(config):
             "MESOS_REGISTRY=" + config["registry"],
             "MESOS_WORK_DIR=" + config["work_dir"],
         ],
-        image=config["mesos_master_image"],
-        entrypoint="bash /files/run_mesos_master.sh",
+        image=config["mesos_main_image"],
+        entrypoint="bash /files/run_mesos_main.sh",
         detach=True,
     )
     cli.start(container=container.get("Id"))
-    master_container = config["mesos_master_container"]
-    print_utils.okgreen("started container %s" % master_container)
+    main_container = config["mesos_main_container"]
+    print_utils.okgreen("started container %s" % main_container)
 
-    # Run mesos slaves
-    cli.pull(config['mesos_slave_image'])
+    # Run mesos subordinates
+    cli.pull(config['mesos_subordinate_image'])
     for i in range(0, config['num_agents']):
         run_mesos_agent(config, i, i)
     for i in range(0, config.get('num_exclusive_agents', 0)):
@@ -138,7 +138,7 @@ def run_mesos(config):
             exclusive_label_value=config.get('exclusive_label_value', ''))
 
     print_utils.okblue(
-        "sleep 60 secs for mesos agent to register with mesos master")
+        "sleep 60 secs for mesos agent to register with mesos main")
     time.sleep(60)
 
 
@@ -164,7 +164,7 @@ def run_mesos_agent(config, agent_index, port_offset, is_exclusive=False,
             binds=[
                 work_dir + "/files:/files",
                 work_dir
-                + "/mesos_config/etc_mesos-slave:/etc/mesos-slave",
+                + "/mesos_config/etc_mesos-subordinate:/etc/mesos-subordinate",
                 "/var/run/docker.sock:/var/run/docker.sock",
             ],
             privileged=True,
@@ -196,8 +196,8 @@ def run_mesos_agent(config, agent_index, port_offset, is_exclusive=False,
             "MESOS_QOS_CORRECTION_INTERVAL_MIN="
             + config["qos_correction_interval_min"],
         ],
-        image=config["mesos_slave_image"],
-        entrypoint="bash /files/run_mesos_slave.sh",
+        image=config["mesos_subordinate_image"],
+        entrypoint="bash /files/run_mesos_subordinate.sh",
         detach=True,
     )
     cli.start(container=container.get("Id"))

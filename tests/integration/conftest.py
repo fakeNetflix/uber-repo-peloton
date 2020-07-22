@@ -122,7 +122,7 @@ class Container(object):
             log.info("%s started", name)
 
         if self._names[0] in MESOS_MASTER:
-            wait_for_mesos_master_leader()
+            wait_for_mesos_main_leader()
 
     def stop(self):
         for name in self._names:
@@ -135,18 +135,18 @@ class Container(object):
             log.info("%s restarted", name)
 
         if self._names[0] in MESOS_MASTER:
-            wait_for_mesos_master_leader()
+            wait_for_mesos_main_leader()
 
 
 def get_container(container_name):
     return Container(container_name)
 
 
-def wait_for_mesos_master_leader(
+def wait_for_mesos_main_leader(
     url="http://127.0.0.1:5050/state.json", timeout_secs=20
 ):
     """
-    util method to wait for mesos master leader elected
+    util method to wait for mesos main leader elected
     """
 
     deadline = time.time() + timeout_secs
@@ -160,7 +160,7 @@ def wait_for_mesos_master_leader(
         except Exception:
             pass
 
-    assert False, "timed out waiting for mesos master leader"
+    assert False, "timed out waiting for mesos main leader"
 
 
 def setup_minicluster(enable_k8s=False):
@@ -194,7 +194,7 @@ def teardown_minicluster(dump_logs=False):
             teardown(stop=True)
 
             try:
-                # TODO (varung): enable PE and mesos-master logs if needed
+                # TODO (varung): enable PE and mesos-main logs if needed
                 cli = Client(base_url="unix://var/run/docker.sock")
                 for c in ("peloton-jobmgr0",
                           "peloton-resmgr0"):
@@ -245,7 +245,7 @@ def cleanup_stateless_jobs(timeout_secs=10):
 
 
 @pytest.fixture()
-def mesos_master():
+def mesos_main():
     return Container(MESOS_MASTER)
 
 

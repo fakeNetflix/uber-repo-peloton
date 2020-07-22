@@ -21,7 +21,7 @@ import (
 	"time"
 
 	mesospb "github.com/uber/peloton/.gen/mesos/v1"
-	masterpb "github.com/uber/peloton/.gen/mesos/v1/master"
+	mainpb "github.com/uber/peloton/.gen/mesos/v1/master"
 	pb_host "github.com/uber/peloton/.gen/peloton/api/v0/host"
 	pb_eventstream "github.com/uber/peloton/.gen/peloton/private/eventstream"
 	"github.com/uber/peloton/pkg/common"
@@ -250,7 +250,7 @@ func (suite *HostPoolManagerTestSuite) TestReconcile() {
 	ctrl := gomock.NewController(suite.T())
 	defer ctrl.Finish()
 
-	mockMasterOperatorClient := mpb_mocks.NewMockMasterOperatorClient(ctrl)
+	mockMainOperatorClient := mpb_mocks.NewMockMainOperatorClient(ctrl)
 	mockMaintenanceMap := hostmgr_host_mocks.NewMockMaintenanceHostInfoMap(ctrl)
 
 	response := suite.makeAgentsResponse()
@@ -258,10 +258,10 @@ func (suite *HostPoolManagerTestSuite) TestReconcile() {
 		GetDrainingHostInfos(gomock.Any()).
 		Return([]*pb_host.HostInfo{}).
 		Times(len(suite.upMachines) + len(suite.drainingMachines))
-	mockMasterOperatorClient.EXPECT().Agents().Return(response, nil)
+	mockMainOperatorClient.EXPECT().Agents().Return(response, nil)
 
 	loader := &host.Loader{
-		OperatorClient:         mockMasterOperatorClient,
+		OperatorClient:         mockMainOperatorClient,
 		Scope:                  tally.NewTestScope("", map[string]string{}),
 		MaintenanceHostInfoMap: mockMaintenanceMap,
 	}
@@ -527,14 +527,14 @@ func (suite *HostPoolManagerTestSuite) TestChangeHostPool() {
 	}
 }
 
-// makeAgentsResponse makes a fake GetAgents response from Mesos master.
-func (suite *HostPoolManagerTestSuite) makeAgentsResponse() *masterpb.Response_GetAgents {
-	response := &masterpb.Response_GetAgents{
-		Agents: []*masterpb.Response_GetAgents_Agent{},
+// makeAgentsResponse makes a fake GetAgents response from Mesos main.
+func (suite *HostPoolManagerTestSuite) makeAgentsResponse() *mainpb.Response_GetAgents {
+	response := &mainpb.Response_GetAgents{
+		Agents: []*mainpb.Response_GetAgents_Agent{},
 	}
-	pidUp := fmt.Sprintf("slave(0)@%s:0.0.0.0", suite.upMachines[0].GetIp())
+	pidUp := fmt.Sprintf("subordinate(0)@%s:0.0.0.0", suite.upMachines[0].GetIp())
 	hostnameUp := suite.upMachines[0].GetHostname()
-	agentUp := &masterpb.Response_GetAgents_Agent{
+	agentUp := &mainpb.Response_GetAgents_Agent{
 		AgentInfo: &mesospb.AgentInfo{
 			Hostname: &hostnameUp,
 		},
@@ -543,9 +543,9 @@ func (suite *HostPoolManagerTestSuite) makeAgentsResponse() *masterpb.Response_G
 	response.Agents = append(response.Agents, agentUp)
 
 	pidDraining := fmt.Sprintf(
-		"slave(0)@%s:0.0.0.0", suite.drainingMachines[0].GetIp())
+		"subordinate(0)@%s:0.0.0.0", suite.drainingMachines[0].GetIp())
 	hostnameDraining := suite.drainingMachines[0].GetHostname()
-	agentDraining := &masterpb.Response_GetAgents_Agent{
+	agentDraining := &mainpb.Response_GetAgents_Agent{
 		AgentInfo: &mesospb.AgentInfo{
 			Hostname: &hostnameDraining,
 		},

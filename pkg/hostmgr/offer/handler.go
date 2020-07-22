@@ -108,7 +108,7 @@ type eventHandler struct {
 // Represents eventstream to persist mesos status update events,
 // which are consumed by Job Manager and Resource Manager.
 // Once both clients process the mesos status update event, it is purged
-// from eventstream and acknowledgement is sent to Mesos Master.
+// from eventstream and acknowledgement is sent to Mesos Main.
 var eventStreamHandler *eventstream.EventHandler
 
 // eventForwarder is the struct to forward status update events to
@@ -313,7 +313,7 @@ func (h *eventHandler) SetHostPoolManager(manager manager.HostPoolManager) {
 	h.offerPool.SetHostPoolManager(manager)
 }
 
-// Offers is the mesos callback that sends the offers from master
+// Offers is the mesos callback that sends the offers from main
 func (h *eventHandler) Offers(ctx context.Context, body *sched.Event) error {
 	event := body.GetOffers()
 	for _, offer := range event.Offers {
@@ -327,7 +327,7 @@ func (h *eventHandler) Offers(ctx context.Context, body *sched.Event) error {
 	return nil
 }
 
-// InverseOffers is the mesos callback that sends the InverseOffers from master
+// InverseOffers is the mesos callback that sends the InverseOffers from main
 func (h *eventHandler) InverseOffers(ctx context.Context, body *sched.Event) error {
 
 	event := body.GetInverseOffers()
@@ -396,8 +396,8 @@ func (h *eventHandler) Update(ctx context.Context, body *sched.Event) error {
 		nil)
 
 	// If buffer is full, AddStatusUpdate would fail and peloton would not
-	// ack the status update and mesos master would resend the status update.
-	// Return nil otherwise the framework would disconnect with the mesos master
+	// ack the status update and mesos main would resend the status update.
+	// Return nil otherwise the framework would disconnect with the mesos main
 	return nil
 }
 
@@ -484,7 +484,7 @@ func (h *eventHandler) startAsyncProcessTaskUpdates() {
 			for taskStatus := range h.ackChannel {
 				uid := uuid.UUID(taskStatus.GetUuid()).String()
 				// once acked, delete from map
-				// if ack failed at mesos master then agent will re-send
+				// if ack failed at mesos main then agent will re-send
 				h.ackStatusMap.Delete(uid)
 
 				if err := h.acknowledgeTaskUpdate(
@@ -500,7 +500,7 @@ func (h *eventHandler) startAsyncProcessTaskUpdates() {
 }
 
 // acknowledgeTaskUpdate, ACK task status update events
-// thru POST scheduler client call to Mesos Master.
+// thru POST scheduler client call to Mesos Main.
 func (h *eventHandler) acknowledgeTaskUpdate(
 	ctx context.Context,
 	taskStatus *mesos.TaskStatus) error {
