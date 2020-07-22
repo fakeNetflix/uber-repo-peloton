@@ -113,8 +113,8 @@ def test__start_stop_task_with_nonexistent_job_id():
     assert resp.error.HasField("notFound")
 
 
-def test__stop_start_tasks_when_mesos_master_down_kills_tasks_when_started(
-    long_running_job, mesos_master
+def test__stop_start_tasks_when_mesos_main_down_kills_tasks_when_started(
+    long_running_job, mesos_main
 ):
     long_running_job.create()
     long_running_job.wait_for_state(goal_state="RUNNING")
@@ -125,27 +125,27 @@ def test__stop_start_tasks_when_mesos_master_down_kills_tasks_when_started(
     def wait_for_instance_to_stop():
         return long_running_job.get_task(0).state_str == "KILLED"
 
-    mesos_master.stop()
+    mesos_main.stop()
     long_running_job.stop(ranges=[range])
-    mesos_master.start()
+    mesos_main.start()
     long_running_job.wait_for_condition(wait_for_instance_to_stop)
 
     def wait_for_instance_to_run():
         return long_running_job.get_task(0).state_str == "RUNNING"
 
-    mesos_master.stop()
+    mesos_main.stop()
     long_running_job.start(ranges=[range])
-    mesos_master.start()
+    mesos_main.start()
     long_running_job.wait_for_condition(wait_for_instance_to_run)
 
-    mesos_master.stop()
+    mesos_main.stop()
     long_running_job.stop()
-    mesos_master.start()
+    mesos_main.start()
     long_running_job.wait_for_terminated()
 
 
-def test__stop_start_tasks_when_mesos_master_down_and_jobmgr_restarts(
-    long_running_job, mesos_master, jobmgr
+def test__stop_start_tasks_when_mesos_main_down_and_jobmgr_restarts(
+    long_running_job, mesos_main, jobmgr
 ):
     long_running_job.create()
     long_running_job.wait_for_state(goal_state="RUNNING")
@@ -156,25 +156,25 @@ def test__stop_start_tasks_when_mesos_master_down_and_jobmgr_restarts(
     def wait_for_instance_to_stop():
         return long_running_job.get_task(0).state_str == "KILLED"
 
-    mesos_master.stop()
+    mesos_main.stop()
     long_running_job.stop(ranges=[range])
     jobmgr.restart()
-    mesos_master.start()
+    mesos_main.start()
     long_running_job.wait_for_condition(wait_for_instance_to_stop)
 
     def wait_for_instance_to_run():
         return long_running_job.get_task(0).state_str == "RUNNING"
 
-    mesos_master.stop()
+    mesos_main.stop()
     long_running_job.start(ranges=[range])
     jobmgr.restart()
-    mesos_master.start()
+    mesos_main.start()
     long_running_job.wait_for_condition(wait_for_instance_to_run)
 
-    mesos_master.stop()
+    mesos_main.stop()
     long_running_job.stop()
     jobmgr.restart()
-    mesos_master.start()
+    mesos_main.start()
     long_running_job.wait_for_terminated()
 
 

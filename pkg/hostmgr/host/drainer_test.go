@@ -21,7 +21,7 @@ import (
 
 	mesos "github.com/uber/peloton/.gen/mesos/v1"
 	mesos_maintenance "github.com/uber/peloton/.gen/mesos/v1/maintenance"
-	mesos_master "github.com/uber/peloton/.gen/mesos/v1/master"
+	mesos_main "github.com/uber/peloton/.gen/mesos/v1/master"
 	host "github.com/uber/peloton/.gen/peloton/api/v0/host"
 
 	"github.com/uber/peloton/pkg/common/lifecycle"
@@ -41,7 +41,7 @@ type drainerTestSuite struct {
 	suite.Suite
 	drainer                  *drainer
 	mockCtrl                 *gomock.Controller
-	mockMasterOperatorClient *mpb_mocks.MockMasterOperatorClient
+	mockMainOperatorClient *mpb_mocks.MockMainOperatorClient
 	mockMaintenanceQueue     *mq_mocks.MockMaintenanceQueue
 	mockMaintenanceMap       *host_mocks.MockMaintenanceHostInfoMap
 	drainingMachines         []*mesos.MachineID
@@ -105,13 +105,13 @@ func (suite *drainerTestSuite) SetupSuite() {
 
 func (suite *drainerTestSuite) SetupTest() {
 	suite.mockCtrl = gomock.NewController(suite.T())
-	suite.mockMasterOperatorClient = mpb_mocks.NewMockMasterOperatorClient(suite.mockCtrl)
+	suite.mockMainOperatorClient = mpb_mocks.NewMockMainOperatorClient(suite.mockCtrl)
 	suite.mockMaintenanceQueue = mq_mocks.NewMockMaintenanceQueue(suite.mockCtrl)
 	suite.mockMaintenanceMap = host_mocks.NewMockMaintenanceHostInfoMap(suite.mockCtrl)
 
 	suite.drainer = &drainer{
 		drainerPeriod:          drainerPeriod,
-		masterOperatorClient:   suite.mockMasterOperatorClient,
+		mainOperatorClient:   suite.mockMainOperatorClient,
 		maintenanceQueue:       suite.mockMaintenanceQueue,
 		lifecycle:              lifecycle.NewLifeCycle(),
 		maintenanceHostInfoMap: suite.mockMaintenanceMap,
@@ -129,7 +129,7 @@ func TestDrainer(t *testing.T) {
 //TestNewDrainer test creation of new host drainer
 func (suite *drainerTestSuite) TestDrainerNewDrainer() {
 	drainer := NewDrainer(drainerPeriod,
-		suite.mockMasterOperatorClient,
+		suite.mockMainOperatorClient,
 		suite.mockMaintenanceQueue,
 		host_mocks.NewMockMaintenanceHostInfoMap(suite.mockCtrl))
 	suite.NotNil(drainer)
@@ -137,7 +137,7 @@ func (suite *drainerTestSuite) TestDrainerNewDrainer() {
 
 // TestDrainerStartSuccess tests the success case of starting the host drainer
 func (suite *drainerTestSuite) TestDrainerStartSuccess() {
-	response := mesos_master.Response_GetMaintenanceStatus{
+	response := mesos_main.Response_GetMaintenanceStatus{
 		Status: &mesos_maintenance.ClusterStatus{
 			DrainingMachines: []*mesos_maintenance.ClusterStatus_DrainingMachine{},
 			DownMachines:     suite.downMachines,
@@ -158,7 +158,7 @@ func (suite *drainerTestSuite) TestDrainerStartSuccess() {
 		drainingHostnames = append(drainingHostnames, drainingMachine.GetHostname())
 	}
 
-	suite.mockMasterOperatorClient.EXPECT().
+	suite.mockMainOperatorClient.EXPECT().
 		GetMaintenanceStatus().
 		Return(&response, nil).
 		MinTimes(1).
@@ -187,7 +187,7 @@ func (suite *drainerTestSuite) TestDrainerStartSuccess() {
 // TestDrainerStartGetMaintenanceStatusFailure tests the failure case of
 // starting the host drainer due to error while getting maintenance status
 func (suite *drainerTestSuite) TestDrainerStartGetMaintenanceStatusFailure() {
-	suite.mockMasterOperatorClient.EXPECT().
+	suite.mockMainOperatorClient.EXPECT().
 		GetMaintenanceStatus().
 		Return(nil, fmt.Errorf("Fake GetMaintenanceStatus error")).
 		MinTimes(1).
@@ -202,7 +202,7 @@ func (suite *drainerTestSuite) TestDrainerStartGetMaintenanceStatusFailure() {
 // host drainer due to error while enqueuing hostnames into maintenance queue
 func (suite *drainerTestSuite) TestDrainerStartEnqueueFailure() {
 	var drainingHostnames []string
-	response := mesos_master.Response_GetMaintenanceStatus{
+	response := mesos_main.Response_GetMaintenanceStatus{
 		Status: &mesos_maintenance.ClusterStatus{
 			DrainingMachines: []*mesos_maintenance.ClusterStatus_DrainingMachine{},
 			DownMachines:     suite.downMachines,
@@ -223,7 +223,7 @@ func (suite *drainerTestSuite) TestDrainerStartEnqueueFailure() {
 			drainingMachine.GetHostname())
 	}
 
-	suite.mockMasterOperatorClient.EXPECT().
+	suite.mockMainOperatorClient.EXPECT().
 		GetMaintenanceStatus().
 		Return(&response, nil).
 		MinTimes(1).

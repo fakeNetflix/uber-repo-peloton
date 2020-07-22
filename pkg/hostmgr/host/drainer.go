@@ -31,7 +31,7 @@ import (
 // the hosts which are to be put into maintenance
 type drainer struct {
 	drainerPeriod          time.Duration
-	masterOperatorClient   mpb.MasterOperatorClient
+	mainOperatorClient   mpb.MainOperatorClient
 	maintenanceQueue       queue.MaintenanceQueue
 	lifecycle              lifecycle.LifeCycle // lifecycle manager
 	maintenanceHostInfoMap MaintenanceHostInfoMap
@@ -46,13 +46,13 @@ type Drainer interface {
 // NewDrainer creates a new host drainer
 func NewDrainer(
 	drainerPeriod time.Duration,
-	masterOperatorClient mpb.MasterOperatorClient,
+	mainOperatorClient mpb.MainOperatorClient,
 	maintenanceQueue queue.MaintenanceQueue,
 	hostInfoMap MaintenanceHostInfoMap,
 ) Drainer {
 	return &drainer{
 		drainerPeriod:          drainerPeriod,
-		masterOperatorClient:   masterOperatorClient,
+		mainOperatorClient:   mainOperatorClient,
 		maintenanceQueue:       maintenanceQueue,
 		lifecycle:              lifecycle.NewLifeCycle(),
 		maintenanceHostInfoMap: hostInfoMap,
@@ -104,7 +104,7 @@ func (d *drainer) Stop() {
 }
 
 func (d *drainer) reconcileMaintenanceState() error {
-	response, err := d.masterOperatorClient.GetMaintenanceStatus()
+	response, err := d.mainOperatorClient.GetMaintenanceStatus()
 	if err != nil {
 		return err
 	}

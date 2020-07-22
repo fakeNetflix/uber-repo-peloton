@@ -107,7 +107,7 @@ func (m *MesosManager) ReconcileHosts() ([]*scalar.HostInfo, error) {
 	return nil, nil
 }
 
-// Offers is the mesos callback that sends the offers from master
+// Offers is the mesos callback that sends the offers from main
 // TODO: add metrics similar to what offerpool has
 func (m *MesosManager) Offers(ctx context.Context, body *sched.Event) error {
 	event := body.GetOffers()

@@ -160,7 +160,7 @@ var (
 
 	mesosSecretFile = app.Flag(
 		"mesos-secret-file",
-		"Secret file containing one-liner password to connect to Mesos master").
+		"Secret file containing one-liner password to connect to Mesos main").
 		Default("").
 		Envar("MESOS_SECRET_FILE").
 		String()
@@ -383,9 +383,9 @@ func main() {
 	)
 
 	// TODO: Skip it when k8s is enabled.
-	mesosMasterDetector, err := mesos.NewZKDetector(cfg.Mesos.ZkPath)
+	mesosMainDetector, err := mesos.NewZKDetector(cfg.Mesos.ZkPath)
 	if err != nil {
-		log.Fatalf("Failed to initialize mesos master detector: %v", err)
+		log.Fatalf("Failed to initialize mesos main detector: %v", err)
 	}
 
 	// NOTE: we start the server immediately even if no leader has been
@@ -419,25 +419,25 @@ func main() {
 	var mInbound = mhttp.NewInbound(rootScope, driver)
 	inbounds = append(inbounds, mInbound)
 
-	// TODO: update Mesos url when leading mesos master changes
+	// TODO: update Mesos url when leading mesos main changes
 	mOutbound := mhttp.NewOutbound(
 		rootScope,
-		mesosMasterDetector,
+		mesosMainDetector,
 		driver.Endpoint(),
 		authHeader,
-		mhttp.MaxConnectionsPerHost(cfg.Mesos.Framework.MaxConnectionsToMesosMaster),
+		mhttp.MaxConnectionsPerHost(cfg.Mesos.Framework.MaxConnectionsToMesosMain),
 	)
 
-	// MasterOperatorClient API outbound
+	// MainOperatorClient API outbound
 	mOperatorOutbound := mhttp.NewOutbound(
 		rootScope,
-		mesosMasterDetector,
+		mesosMainDetector,
 		url.URL{
 			Scheme: "http",
-			Path:   common.MesosMasterOperatorEndPoint,
+			Path:   common.MesosMainOperatorEndPoint,
 		},
 		authHeader,
-		mhttp.MaxConnectionsPerHost(cfg.Mesos.Framework.MaxConnectionsToMesosMaster),
+		mhttp.MaxConnectionsPerHost(cfg.Mesos.Framework.MaxConnectionsToMesosMain),
 	)
 
 	// All leader discovery metrics share a scope (and will be tagged
@@ -465,8 +465,8 @@ func main() {
 	resmgrOutbound := t.NewOutbound(resmgrPeerChooser)
 
 	outbounds := yarpc.Outbounds{
-		common.MesosMasterScheduler: mOutbound,
-		common.MesosMasterOperator:  mOperatorOutbound,
+		common.MesosMainScheduler: mOutbound,
+		common.MesosMainOperator:  mOperatorOutbound,
 		common.PelotonResourceManager: transport.Outbounds{
 			Unary: resmgrOutbound,
 		},
@@ -525,11 +525,11 @@ func main() {
 	// NOTE: This blocks us to move all Mesos related logic into
 	// hostmgr.Server because schedulerClient uses dispatcher...
 	schedulerClient := mpb.NewSchedulerClient(
-		dispatcher.ClientConfig(common.MesosMasterScheduler),
+		dispatcher.ClientConfig(common.MesosMainScheduler),
 		cfg.Mesos.Encoding,
 	)
-	masterOperatorClient := mpb.NewMasterOperatorClient(
-		dispatcher.ClientConfig(common.MesosMasterOperator),
+	mainOperatorClient := mpb.NewMainOperatorClient(
+		dispatcher.ClientConfig(common.MesosMainOperator),
 		cfg.Mesos.Encoding,
 	)
 
@@ -562,7 +562,7 @@ func main() {
 	maintenanceHostInfoMap := host.NewMaintenanceHostInfoMap(rootScope)
 
 	loader := host.Loader{
-		OperatorClient:         masterOperatorClient,
+		OperatorClient:         mainOperatorClient,
 		Scope:                  rootScope.SubScope("hostmap"),
 		SlackResourceTypes:     cfg.HostManager.SlackResourceTypes,
 		MaintenanceHostInfoMap: maintenanceHostInfoMap,
@@ -702,10 +702,10 @@ func main() {
 		dispatcher,
 		metric,
 		schedulerClient,
-		masterOperatorClient,
+		mainOperatorClient,
 		driver,
 		cfg.Mesos,
-		mesosMasterDetector,
+		mesosMainDetector,
 		&cfg.HostManager,
 		maintenanceQueue,
 		cfg.HostManager.SlackResourceTypes,
@@ -717,7 +717,7 @@ func main() {
 	hostsvc.InitServiceHandler(
 		dispatcher,
 		rootScope,
-		masterOperatorClient,
+		mainOperatorClient,
 		maintenanceQueue,
 		maintenanceHostInfoMap,
 		hostPoolManager,
@@ -728,13 +728,13 @@ func main() {
 		store,
 		ormStore,
 		maintenanceQueue,
-		masterOperatorClient,
+		mainOperatorClient,
 		maintenanceHostInfoMap,
 	)
 
 	drainer := host.NewDrainer(
 		cfg.HostManager.HostDrainerPeriod,
-		masterOperatorClient,
+		mainOperatorClient,
 		maintenanceQueue,
 		maintenanceHostInfoMap,
 	)
@@ -744,7 +744,7 @@ func main() {
 		backgroundManager,
 		cfg.HostManager.HTTPPort,
 		cfg.HostManager.GRPCPort,
-		mesosMasterDetector,
+		mesosMainDetector,
 		mInbound,
 		mOutbound,
 		reconciler,

@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	mesos "github.com/uber/peloton/.gen/mesos/v1"
-	mesos_master "github.com/uber/peloton/.gen/mesos/v1/master"
+	mesos_main "github.com/uber/peloton/.gen/mesos/v1/master"
 	host "github.com/uber/peloton/.gen/peloton/api/v0/host"
 
 	"github.com/uber/peloton/pkg/common"
@@ -42,18 +42,18 @@ type HostMapTestSuite struct {
 
 	ctrl           *gomock.Controller
 	testScope      tally.TestScope
-	operatorClient *mock_mpb.MockMasterOperatorClient
+	operatorClient *mock_mpb.MockMainOperatorClient
 }
 
 func (suite *HostMapTestSuite) SetupTest() {
 	suite.ctrl = gomock.NewController(suite.T())
 	suite.testScope = tally.NewTestScope("", map[string]string{})
-	suite.operatorClient = mock_mpb.NewMockMasterOperatorClient(suite.ctrl)
+	suite.operatorClient = mock_mpb.NewMockMainOperatorClient(suite.ctrl)
 }
 
-func makeAgentsResponse(numAgents int) *mesos_master.Response_GetAgents {
-	response := &mesos_master.Response_GetAgents{
-		Agents: []*mesos_master.Response_GetAgents_Agent{},
+func makeAgentsResponse(numAgents int) *mesos_main.Response_GetAgents {
+	response := &mesos_main.Response_GetAgents{
+		Agents: []*mesos_main.Response_GetAgents_Agent{},
 	}
 	for i := 0; i < numAgents; i++ {
 		resVal := float64(_defaultResourceValue)
@@ -86,7 +86,7 @@ func makeAgentsResponse(numAgents int) *mesos_master.Response_GetAgents {
 				WithRevocable(&mesos.Resource_RevocableInfo{}).
 				Build(),
 		}
-		getAgent := &mesos_master.Response_GetAgents_Agent{
+		getAgent := &mesos_main.Response_GetAgents_Agent{
 			AgentInfo: &mesos.AgentInfo{
 				Hostname:  &tmpID,
 				Resources: resources,

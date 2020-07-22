@@ -22,7 +22,7 @@ import (
 
 	mesos "github.com/uber/peloton/.gen/mesos/v1"
 	mesos_maintenance "github.com/uber/peloton/.gen/mesos/v1/maintenance"
-	mesos_master "github.com/uber/peloton/.gen/mesos/v1/master"
+	mesos_main "github.com/uber/peloton/.gen/mesos/v1/master"
 	sched "github.com/uber/peloton/.gen/mesos/v1/scheduler"
 	"github.com/uber/peloton/.gen/peloton/api/v0/job"
 	"github.com/uber/peloton/.gen/peloton/api/v0/peloton"
@@ -76,7 +76,7 @@ type RecoveryTestSuite struct {
 	jobConfigOps             *objectmocks.MockJobConfigOps
 	jobRuntimeOps            *objectmocks.MockJobRuntimeOps
 	mockMaintenanceQueue     *qm.MockMaintenanceQueue
-	mockMasterOperatorClient *mpb_mocks.MockMasterOperatorClient
+	mockMainOperatorClient *mpb_mocks.MockMainOperatorClient
 	drainingMachines         []*mesos.MachineID
 	downMachines             []*mesos.MachineID
 	maintenanceHostInfoMap   *host_mocks.MockMaintenanceHostInfoMap
@@ -126,7 +126,7 @@ func (suite *RecoveryTestSuite) SetupTest() {
 	suite.jobRuntimeOps = objectmocks.NewMockJobRuntimeOps(suite.mockCtrl)
 
 	suite.mockMaintenanceQueue = qm.NewMockMaintenanceQueue(suite.mockCtrl)
-	suite.mockMasterOperatorClient = mpb_mocks.NewMockMasterOperatorClient(suite.mockCtrl)
+	suite.mockMainOperatorClient = mpb_mocks.NewMockMainOperatorClient(suite.mockCtrl)
 	suite.maintenanceHostInfoMap = host_mocks.NewMockMaintenanceHostInfoMap(suite.mockCtrl)
 
 	suite.recoveryHandler = NewRecoveryHandler(
@@ -134,7 +134,7 @@ func (suite *RecoveryTestSuite) SetupTest() {
 		suite.mockTaskStore,
 		&ormStore.Store{},
 		suite.mockMaintenanceQueue,
-		suite.mockMasterOperatorClient,
+		suite.mockMainOperatorClient,
 		suite.maintenanceHostInfoMap)
 
 	t := rpc.NewTransport()
@@ -212,7 +212,7 @@ func (suite *RecoveryTestSuite) SetupTest() {
 		jobRuntimeOps: suite.jobRuntimeOps,
 
 		maintenanceQueue:       suite.mockMaintenanceQueue,
-		masterOperatorClient:   suite.mockMasterOperatorClient,
+		mainOperatorClient:   suite.mockMainOperatorClient,
 		maintenanceHostInfoMap: suite.maintenanceHostInfoMap,
 	}
 }
@@ -257,9 +257,9 @@ func (suite *RecoveryTestSuite) TestStart() {
 	// Do Recovery for Maintenance Queue
 	suite.mockMaintenanceQueue.EXPECT().Clear()
 
-	suite.mockMasterOperatorClient.EXPECT().
+	suite.mockMainOperatorClient.EXPECT().
 		GetMaintenanceStatus().
-		Return(&mesos_master.Response_GetMaintenanceStatus{
+		Return(&mesos_main.Response_GetMaintenanceStatus{
 			Status: clusterStatus,
 		}, nil)
 
@@ -311,7 +311,7 @@ func (suite *RecoveryTestSuite) TestStart() {
 
 func (suite *RecoveryTestSuite) TestStart_Error() {
 	suite.mockMaintenanceQueue.EXPECT().Clear()
-	suite.mockMasterOperatorClient.EXPECT().
+	suite.mockMainOperatorClient.EXPECT().
 		GetMaintenanceStatus().
 		Return(nil, fmt.Errorf("Fake GetMaintenance error"))
 
@@ -347,9 +347,9 @@ func (suite *RecoveryTestSuite) TestStartDBRecoveryFailure() {
 	// Do Recovery for Maintenance Queue
 	suite.mockMaintenanceQueue.EXPECT().Clear()
 
-	suite.mockMasterOperatorClient.EXPECT().
+	suite.mockMainOperatorClient.EXPECT().
 		GetMaintenanceStatus().
-		Return(&mesos_master.Response_GetMaintenanceStatus{
+		Return(&mesos_main.Response_GetMaintenanceStatus{
 			Status: clusterStatus,
 		}, nil)
 

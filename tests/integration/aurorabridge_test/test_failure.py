@@ -22,9 +22,9 @@ def test__simple_update_with_restart_component(
         jobmgr,
         resmgr,
         hostmgr,
-        mesos_master):
+        mesos_main):
     """
-    Start an update, and restart jobmgr, resmgr, hostmgr & mesos master.
+    Start an update, and restart jobmgr, resmgr, hostmgr & mesos main.
     """
     res = client.start_job_update(
         get_job_update_request('test_dc_labrat_large_job.yaml'),
@@ -47,8 +47,8 @@ def test__simple_update_with_restart_component(
     hostmgr.restart()
     time.sleep(random.randint(1, 10))
 
-    # restart mesos master to jumble up host manager state
-    mesos_master.restart()
+    # restart mesos main to jumble up host manager state
+    mesos_main.restart()
 
     # Sleep to ensure lucene index converges
     time.sleep(10)
@@ -108,9 +108,9 @@ def test__simple_update_events_purge(
 def test__simple_update_tasks_reconcile(
         client,
         hostmgr,
-        mesos_master):
+        mesos_main):
     """
-    Restart host manager and mesos master multiple times,
+    Restart host manager and mesos main multiple times,
     to make sure mesos tasks are reconciled correctly.
     """
     res = client.start_job_update(
@@ -123,17 +123,17 @@ def test__simple_update_tasks_reconcile(
     # First restart
     hostmgr.restart()
     time.sleep(random.randint(1, 5))
-    mesos_master.restart()
+    mesos_main.restart()
 
     # Second restart
     hostmgr.restart()
     time.sleep(random.randint(1, 5))
-    mesos_master.restart()
+    mesos_main.restart()
 
     # Third restart
     hostmgr.restart()
     time.sleep(random.randint(1, 5))
-    mesos_master.restart()
+    mesos_main.restart()
 
     # Sleep to ensure lucene index converges
     time.sleep(10)
@@ -150,7 +150,7 @@ def test__get_job_update_details__restart_jobmgr(client,
                                                  jobmgr,
                                                  resmgr,
                                                  hostmgr,
-                                                 mesos_master):
+                                                 mesos_main):
     """
     Start an update, call getJobUpdateDetails, restart jobmgr:
     1. Before recovery finishes, expect error

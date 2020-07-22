@@ -67,7 +67,7 @@ class MiniClusterDriver(driver_base.ClusterDriverABC):
 
     def __init__(self):
         self.component_name_map = {
-            components.MesosMaster().name: "peloton-mesos-master",
+            components.MesosMain().name: "peloton-mesos-main",
             components.MesosAgent().name: "peloton-mesos-agent",
             components.Zookeeper().name: "peloton-zk",
             components.Cassandra().name: "peloton-cassandra",

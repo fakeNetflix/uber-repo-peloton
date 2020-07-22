@@ -26,7 +26,7 @@ import (
 
 	mesos "github.com/uber/peloton/.gen/mesos/v1"
 	mesos_maintenance "github.com/uber/peloton/.gen/mesos/v1/maintenance"
-	mesos_master "github.com/uber/peloton/.gen/mesos/v1/master"
+	mesos_main "github.com/uber/peloton/.gen/mesos/v1/master"
 	sched "github.com/uber/peloton/.gen/mesos/v1/scheduler"
 	hpb "github.com/uber/peloton/.gen/peloton/api/v0/host"
 	"github.com/uber/peloton/.gen/peloton/api/v0/peloton"
@@ -196,12 +196,12 @@ type HostMgrHandlerTestSuite struct {
 	ctrl                   *gomock.Controller
 	testScope              tally.TestScope
 	schedulerClient        *mpb_mocks.MockSchedulerClient
-	masterOperatorClient   *mpb_mocks.MockMasterOperatorClient
+	mainOperatorClient   *mpb_mocks.MockMainOperatorClient
 	provider               *hostmgr_mesos_mocks.MockFrameworkInfoProvider
 	pool                   offerpool.Pool
 	handler                *ServiceHandler
 	frameworkID            *mesos.FrameworkID
-	mesosDetector          *hostmgr_mesos_mocks.MockMasterDetector
+	mesosDetector          *hostmgr_mesos_mocks.MockMainDetector
 	maintenanceQueue       *qm.MockMaintenanceQueue
 	drainingMachines       []*mesos.MachineID
 	downMachines           []*mesos.MachineID
@@ -243,9 +243,9 @@ func (suite *HostMgrHandlerTestSuite) SetupTest() {
 	suite.ctrl = gomock.NewController(suite.T())
 	suite.testScope = tally.NewTestScope("", map[string]string{})
 	suite.schedulerClient = mpb_mocks.NewMockSchedulerClient(suite.ctrl)
-	suite.masterOperatorClient = mpb_mocks.NewMockMasterOperatorClient(suite.ctrl)
+	suite.mainOperatorClient = mpb_mocks.NewMockMainOperatorClient(suite.ctrl)
 	suite.provider = hostmgr_mesos_mocks.NewMockFrameworkInfoProvider(suite.ctrl)
-	suite.mesosDetector = hostmgr_mesos_mocks.NewMockMasterDetector(suite.ctrl)
+	suite.mesosDetector = hostmgr_mesos_mocks.NewMockMainDetector(suite.ctrl)
 	suite.watchProcessor = watchmocks.NewMockWatchProcessor(suite.ctrl)
 	suite.watchEventStreamServer = hostsvcmocks.NewMockInternalHostServiceServiceWatchEventStreamEventYARPCServer(suite.ctrl)
 	suite.watchHostSummaryServer = hostsvcmocks.NewMockInternalHostServiceServiceWatchHostSummaryEventYARPCServer(suite.ctrl)
@@ -276,7 +276,7 @@ func (suite *HostMgrHandlerTestSuite) SetupTest() {
 	suite.maintenanceHostInfoMap = hm.NewMockMaintenanceHostInfoMap(suite.ctrl)
 	suite.handler = &ServiceHandler{
 		schedulerClient:        suite.schedulerClient,
-		operatorMasterClient:   suite.masterOperatorClient,
+		operatorMainClient:   suite.mainOperatorClient,
 		metrics:                metrics.NewMetrics(suite.testScope),
 		offerPool:              suite.pool,
 		frameworkInfoProvider:  suite.provider,
@@ -1458,13 +1458,13 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacity() {
 	name := "cpus"
 
 	loader := &host.Loader{
-		OperatorClient:         suite.masterOperatorClient,
+		OperatorClient:         suite.mainOperatorClient,
 		Scope:                  suite.testScope,
 		MaintenanceHostInfoMap: suite.maintenanceHostInfoMap,
 	}
 	numAgents := 2
 	response := makeAgentsResponse(numAgents)
-	suite.masterOperatorClient.EXPECT().Agents().Return(response, nil)
+	suite.mainOperatorClient.EXPECT().Agents().Return(response, nil)
 	suite.maintenanceHostInfoMap.EXPECT().
 		GetDrainingHostInfos(gomock.Any()).
 		Return([]*hpb.HostInfo{}).
@@ -1512,10 +1512,10 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacity() {
 
 		if tt.clientCall {
 			// Set expectations on the mesos operator client
-			suite.masterOperatorClient.EXPECT().GetTasksAllocation(
+			suite.mainOperatorClient.EXPECT().GetTasksAllocation(
 				gomock.Any(),
 			).Return(tt.response, tt.response, tt.err)
-			suite.masterOperatorClient.EXPECT().GetQuota(gomock.Any()).Return(nil, nil)
+			suite.mainOperatorClient.EXPECT().GetQuota(gomock.Any()).Return(nil, nil)
 		}
 
 		// Make the cluster capacity API request
@@ -1547,15 +1547,15 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacityWithoutAg
 	defer suite.ctrl.Finish()
 
 	clusterCapacityReq := &hostsvc.ClusterCapacityRequest{}
-	response := &mesos_master.Response_GetAgents{
-		Agents: []*mesos_master.Response_GetAgents_Agent{},
+	response := &mesos_main.Response_GetAgents{
+		Agents: []*mesos_main.Response_GetAgents_Agent{},
 	}
 	loader := &host.Loader{
-		OperatorClient:         suite.masterOperatorClient,
+		OperatorClient:         suite.mainOperatorClient,
 		Scope:                  suite.testScope,
 		MaintenanceHostInfoMap: hm.NewMockMaintenanceHostInfoMap(suite.ctrl),
 	}
-	suite.masterOperatorClient.EXPECT().Agents().Return(response, nil)
+	suite.mainOperatorClient.EXPECT().Agents().Return(response, nil)
 	loader.Load(nil)
 
 	suite.provider.EXPECT().GetFrameworkID(rootCtx).Return(suite.frameworkID)
@@ -1563,7 +1563,7 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacityWithoutAg
 	scalerType := mesos.Value_SCALAR
 	scalerVal := 200.0
 	name := "cpus"
-	suite.masterOperatorClient.EXPECT().GetTasksAllocation(gomock.Any()).Return([]*mesos.Resource{
+	suite.mainOperatorClient.EXPECT().GetTasksAllocation(gomock.Any()).Return([]*mesos.Resource{
 		{
 			Name: &name,
 			Scalar: &mesos.Value_Scalar{
@@ -1598,13 +1598,13 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacityWithQuota
 	quotaVal := 100.0
 
 	loader := &host.Loader{
-		OperatorClient:         suite.masterOperatorClient,
+		OperatorClient:         suite.mainOperatorClient,
 		Scope:                  suite.testScope,
 		MaintenanceHostInfoMap: suite.maintenanceHostInfoMap,
 	}
 	numAgents := 2
 	response := makeAgentsResponse(numAgents)
-	suite.masterOperatorClient.EXPECT().Agents().Return(response, nil)
+	suite.mainOperatorClient.EXPECT().Agents().Return(response, nil)
 	suite.maintenanceHostInfoMap.EXPECT().
 		GetDrainingHostInfos(gomock.Any()).
 		Return([]*hpb.HostInfo{}).
@@ -1636,8 +1636,8 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacityWithQuota
 
 	// Test GetQuota failure scenario
 	suite.provider.EXPECT().GetFrameworkID(context.Background()).Return(suite.frameworkID)
-	suite.masterOperatorClient.EXPECT().GetTasksAllocation(gomock.Any()).Return(responseAllocated, responseAllocated, nil)
-	suite.masterOperatorClient.EXPECT().GetQuota(gomock.Any()).Return(nil, errors.New("error getting quota"))
+	suite.mainOperatorClient.EXPECT().GetTasksAllocation(gomock.Any()).Return(responseAllocated, responseAllocated, nil)
+	suite.mainOperatorClient.EXPECT().GetQuota(gomock.Any()).Return(nil, errors.New("error getting quota"))
 	resp, _ := suite.handler.ClusterCapacity(
 		rootCtx,
 		clusterCapacityReq,
@@ -1646,8 +1646,8 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacityWithQuota
 
 	// Test GetQuota success scenario
 	suite.provider.EXPECT().GetFrameworkID(context.Background()).Return(suite.frameworkID)
-	suite.masterOperatorClient.EXPECT().GetTasksAllocation(gomock.Any()).Return(responseAllocated, responseAllocated, nil)
-	suite.masterOperatorClient.EXPECT().GetQuota(gomock.Any()).Return(responseQuota, nil)
+	suite.mainOperatorClient.EXPECT().GetTasksAllocation(gomock.Any()).Return(responseAllocated, responseAllocated, nil)
+	suite.mainOperatorClient.EXPECT().GetQuota(gomock.Any()).Return(responseQuota, nil)
 	resp, _ = suite.handler.ClusterCapacity(
 		rootCtx,
 		clusterCapacityReq,
@@ -1663,19 +1663,19 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerClusterCapacityWithQuota
 	}
 }
 
-func (suite *HostMgrHandlerTestSuite) TestGetMesosMasterHostPort() {
+func (suite *HostMgrHandlerTestSuite) TestGetMesosMainHostPort() {
 	defer suite.ctrl.Finish()
 
 	suite.mesosDetector.EXPECT().HostPort().Return("")
-	mesosMasterHostPortResponse, err := suite.handler.GetMesosMasterHostPort(context.Background(), &hostsvc.MesosMasterHostPortRequest{})
+	mesosMainHostPortResponse, err := suite.handler.GetMesosMainHostPort(context.Background(), &hostsvc.MesosMainHostPortRequest{})
 	suite.NotNil(err)
-	suite.Contains(err.Error(), "unable to fetch leader mesos master hostname & port")
+	suite.Contains(err.Error(), "unable to fetch leader mesos main hostname & port")
 
-	suite.mesosDetector.EXPECT().HostPort().Return("master:5050")
-	mesosMasterHostPortResponse, err = suite.handler.GetMesosMasterHostPort(context.Background(), &hostsvc.MesosMasterHostPortRequest{})
+	suite.mesosDetector.EXPECT().HostPort().Return("main:5050")
+	mesosMainHostPortResponse, err = suite.handler.GetMesosMainHostPort(context.Background(), &hostsvc.MesosMainHostPortRequest{})
 	suite.Nil(err)
-	suite.Equal(mesosMasterHostPortResponse.Hostname, "master")
-	suite.Equal(mesosMasterHostPortResponse.Port, "5050")
+	suite.Equal(mesosMainHostPortResponse.Hostname, "main")
+	suite.Equal(mesosMainHostPortResponse.Port, "5050")
 }
 
 func (suite *HostMgrHandlerTestSuite) TestServiceHandlerGetDrainingHosts() {
@@ -1742,7 +1742,7 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerMarkHostsDrained() {
 			GetDrainingHostInfos([]string{}).
 			Return([]*hpb.HostInfo{hostInfo}),
 
-		suite.masterOperatorClient.EXPECT().
+		suite.mainOperatorClient.EXPECT().
 			StartMaintenance(gomock.Any()).
 			Return(nil).
 			Do(func(machineIds []*mesos.MachineID) {
@@ -1787,7 +1787,7 @@ func (suite *HostMgrHandlerTestSuite) TestServiceHandlerMarkHostsDrained() {
 			},
 		})
 
-	suite.masterOperatorClient.EXPECT().
+	suite.mainOperatorClient.EXPECT().
 		StartMaintenance(gomock.Any()).
 		Return(fmt.Errorf("fake StartMaintenance error"))
 	resp, err = suite.handler.MarkHostDrained(
@@ -1816,9 +1816,9 @@ func getAcquireHostOffersRequest() *hostsvc.AcquireHostOffersRequest {
 	}
 }
 
-func makeAgentsResponse(numAgents int) *mesos_master.Response_GetAgents {
-	response := &mesos_master.Response_GetAgents{
-		Agents: []*mesos_master.Response_GetAgents_Agent{},
+func makeAgentsResponse(numAgents int) *mesos_main.Response_GetAgents {
+	response := &mesos_main.Response_GetAgents{
+		Agents: []*mesos_main.Response_GetAgents_Agent{},
 	}
 	for i := 0; i < numAgents; i++ {
 		resVal := float64(_defaultResourceValue)
@@ -1851,7 +1851,7 @@ func makeAgentsResponse(numAgents int) *mesos_master.Response_GetAgents {
 				WithRevocable(&mesos.Resource_RevocableInfo{}).
 				Build(),
 		}
-		getAgent := &mesos_master.Response_GetAgents_Agent{
+		getAgent := &mesos_main.Response_GetAgents_Agent{
 			AgentInfo: &mesos.AgentInfo{
 				Hostname:  &tmpID,
 				Resources: resources,
@@ -1929,7 +1929,7 @@ func (suite *HostMgrHandlerTestSuite) TestGetHosts() {
 	suite.Equal(len(acquiredResp.Hosts), 2)
 }
 
-// Tests disable kill tasks request to mesos master
+// Tests disable kill tasks request to mesos main
 func (suite *HostMgrHandlerTestSuite) TestDisableKillTasks() {
 	defer suite.ctrl.Finish()
 
@@ -2043,14 +2043,14 @@ func TestHostManagerTestSuite(t *testing.T) {
 func (suite *HostMgrHandlerTestSuite) InitializeHosts(numAgents int) {
 	mockMaintenanceMap := hm.NewMockMaintenanceHostInfoMap(suite.ctrl)
 	loader := &host.Loader{
-		OperatorClient:         suite.masterOperatorClient,
+		OperatorClient:         suite.mainOperatorClient,
 		Scope:                  suite.testScope,
 		SlackResourceTypes:     []string{"cpus"},
 		MaintenanceHostInfoMap: mockMaintenanceMap,
 	}
 	response := makeAgentsResponse(numAgents)
 	gomock.InOrder(
-		suite.masterOperatorClient.EXPECT().Agents().Return(response, nil),
+		suite.mainOperatorClient.EXPECT().Agents().Return(response, nil),
 		mockMaintenanceMap.EXPECT().
 			GetDrainingHostInfos(gomock.Any()).
 			Return([]*hpb.HostInfo{}).Times(len(response.GetAgents())),
@@ -2337,7 +2337,7 @@ func (suite *HostMgrHandlerTestSuite) TestReleaseHostsHeldForTasks() {
 }
 
 // Helper type to implement sorting on the slice
-type AgentSlice []*mesos_master.Response_GetAgents_Agent
+type AgentSlice []*mesos_main.Response_GetAgents_Agent
 
 // Needed to use Sort() on AgentSlice
 func (a AgentSlice) Len() int {
@@ -2360,10 +2360,10 @@ func (suite *HostMgrHandlerTestSuite) TestGetMesosAgentInfo() {
 	response := makeAgentsResponse(3)
 	agentInfo := AgentSlice(response.GetAgents())
 	sort.Sort(agentInfo)
-	suite.masterOperatorClient.EXPECT().Agents().Return(response, nil)
+	suite.mainOperatorClient.EXPECT().Agents().Return(response, nil)
 	suite.maintenanceHostInfoMap.EXPECT().GetDrainingHostInfos(gomock.Any()).Return([]*hpb.HostInfo{}).Times(len(response.GetAgents()))
 	loader := &host.Loader{
-		OperatorClient:         suite.masterOperatorClient,
+		OperatorClient:         suite.mainOperatorClient,
 		Scope:                  suite.testScope,
 		MaintenanceHostInfoMap: suite.maintenanceHostInfoMap,
 	}
@@ -2372,7 +2372,7 @@ func (suite *HostMgrHandlerTestSuite) TestGetMesosAgentInfo() {
 	testcases := []struct {
 		name     string
 		hostname string
-		result   []*mesos_master.Response_GetAgents_Agent
+		result   []*mesos_main.Response_GetAgents_Agent
 		err      *hostsvc.GetMesosAgentInfoResponse_Error
 	}{
 		{

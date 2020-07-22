@@ -51,7 +51,7 @@ type recoveryHandler struct {
 	metrics                *metrics.Metrics
 	recoveryScope          tally.Scope
 	maintenanceQueue       queue.MaintenanceQueue
-	masterOperatorClient   mpb.MasterOperatorClient
+	mainOperatorClient   mpb.MainOperatorClient
 	maintenanceHostInfoMap host.MaintenanceHostInfoMap
 
 	taskStore     storage.TaskStore
@@ -66,7 +66,7 @@ func NewRecoveryHandler(
 	taskStore storage.TaskStore,
 	ormStore *ormobjects.Store,
 	maintenanceQueue queue.MaintenanceQueue,
-	masterOperatorClient mpb.MasterOperatorClient,
+	mainOperatorClient mpb.MainOperatorClient,
 	maintenanceHostInfoMap host.MaintenanceHostInfoMap) RecoveryHandler {
 	recovery := &recoveryHandler{
 		metrics:       metrics.NewMetrics(parent),
@@ -78,7 +78,7 @@ func NewRecoveryHandler(
 		jobRuntimeOps: ormobjects.NewJobRuntimeOps(ormStore),
 
 		maintenanceQueue:       maintenanceQueue,
-		masterOperatorClient:   masterOperatorClient,
+		mainOperatorClient:   mainOperatorClient,
 		maintenanceHostInfoMap: maintenanceHostInfoMap,
 	}
 	return recovery
@@ -119,7 +119,7 @@ func (r *recoveryHandler) recoverMaintenanceState() error {
 	// enqueuing, to ensure removal of stale data
 	r.maintenanceQueue.Clear()
 
-	response, err := r.masterOperatorClient.GetMaintenanceStatus()
+	response, err := r.mainOperatorClient.GetMaintenanceStatus()
 	if err != nil {
 		return err
 	}
